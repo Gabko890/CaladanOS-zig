@@ -1,0 +1,6 @@
+{
+    "architecture": "x86_64",
+    "debug": {
+        "serial": true
+    }
+}
