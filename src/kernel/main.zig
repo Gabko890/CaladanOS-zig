@@ -2,6 +2,8 @@ const std = @import("std");
 const console = @import("console");
 const mb2 = @import("arch_boot");
 const cpu = @import("arch_cpu");
+// Re-export custom panic handler from a dedicated file so it becomes the root panic.
+pub const panic = @import("panic.zig").panic;
 
 // 64-bit entry called by the bootstrap
 // magic and info_addr follow Multiboot2

@@ -177,6 +177,12 @@ pub fn clear() void {
     }
 }
 
+// Move the logical cursor to the top-left corner (column 0, row 0).
+pub fn homeTopLeft() void {
+    column = 0;
+    row = 0;
+}
+
 fn foregroundIndex(value: u8) u8 {
     return value & 0x0F;
 }

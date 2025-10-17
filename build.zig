@@ -8,13 +8,15 @@ const Config = struct {
 const default_config = Config{ .architecture = "x86_64", .enable_serial = false };
 
 pub fn build(b: *std.Build) void {
-    const optimize = b.standardOptimizeOption(.{});
+    // Prefer safer runtime checks by default
+    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe });
     const config = loadConfig(b);
     const target = b.resolveTargetQuery(targetFromArchitecture(config.architecture));
 
-    const build_options = b.addOptions();
-    build_options.addOption([]const u8, "architecture", config.architecture);
-    build_options.addOption(bool, "enable_serial", config.enable_serial);
+    const build_options_step = b.addOptions();
+    build_options_step.addOption([]const u8, "architecture", config.architecture);
+    build_options_step.addOption(bool, "enable_serial", config.enable_serial);
+    const build_options_mod = build_options_step.createModule();
 
     // Kernel modules
     const root_module = b.createModule(.{
@@ -23,14 +25,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .code_model = .kernel,
     });
-    root_module.addOptions("build_options", build_options);
+    root_module.addImport("build_options", build_options_mod);
 
     const console_module = b.createModule(.{
         .root_source_file = b.path("src/drivers/video/console.zig"),
         .target = target,
         .optimize = optimize,
     });
-    console_module.addOptions("build_options", build_options);
+    console_module.addImport("build_options", build_options_mod);
 
     const portio_module = b.createModule(.{
         .root_source_file = b.path("src/arch/x86_64/cpu/io.zig"),
@@ -54,14 +56,14 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    multiboot_module.addOptions("build_options", build_options);
+    multiboot_module.addImport("build_options", build_options_mod);
 
     const cpuid_module = b.createModule(.{
         .root_source_file = b.path("src/arch/x86_64/cpu/cpuid.zig"),
         .target = target,
         .optimize = optimize,
     });
-    cpuid_module.addOptions("build_options", build_options);
+    cpuid_module.addImport("build_options", build_options_mod);
 
     root_module.addImport("console", console_module);
     root_module.addImport("arch_boot", multiboot_module);
@@ -76,8 +78,9 @@ pub fn build(b: *std.Build) void {
         .name = "kernel.elf",
         .root_module = root_module,
     });
-    // Add 32-bit bootstrap/long-mode trampoline
+    // Add 32-bit bootstrap/long-mode trampoline and register capture helper
     kernel.addAssemblyFile(b.path("src/arch/x86_64/boot/boot.S"));
+    kernel.addAssemblyFile(b.path("src/arch/x86_64/cpu/regs.S"));
     kernel.setLinkerScript(b.path("src/arch/x86_64/linker/kernel.ld"));
     const install_kernel = b.addInstallArtifact(kernel, .{});
 

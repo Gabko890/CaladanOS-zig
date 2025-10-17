@@ -1,21 +1,17 @@
 .intel_syntax noprefix
 
 // Multiboot2 header
-.section .multiboot, "a", @progbits
+.section .multiboot, "", @progbits
 .balign 8
 multiboot_header:
     .set MB2_MAGIC,   0xE85250D6
-    .set MB2_LENGTH,  64
-    // checksum = -(magic + length)
+    .set MB2_ARCH,    0x00000000           // i386
+    .set MB2_LENGTH,  48                   // 16 (hdr) + 20 (fb tag) + 4 (pad) + 8 (end)
+    // checksum = -(magic + arch + length)
     .long MB2_MAGIC
-    .long 0
+    .long MB2_ARCH
     .long MB2_LENGTH
-    .long 0x17ADAEEA
-    // info request (framebuffer)
-    .long 0x00000001
-    .long 0x0000000c
-    .long 0x00000008
-    .long 0x00000000
+    .long 0x17ADAEFA
     // framebuffer tag: 1024x768x32
     .long 0x00000005
     .long 0x00000014
@@ -23,7 +19,7 @@ multiboot_header:
     .long 0x00000300
     .long 0x00000020         // depth = 32 bpp
     .long 0x00000000         // pad to 8-byte alignment
-    // end tag
+    // end tag (type=0, size=8)
     .long 0x00000000
     .long 0x00000008
 
