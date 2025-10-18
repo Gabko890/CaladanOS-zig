@@ -23,7 +23,7 @@ multiboot_header:
     .long 0x00000000
     .long 0x00000008
 
-.section .bss, "aw", @nobits
+.section .boot.bss, "aw", @nobits
 .balign 16
 boot_stack:
     .skip 16 * 1024
@@ -42,6 +42,9 @@ pml4:
 pdpt:
     .skip 4096
 .balign 4096
+kernel_pdpt:
+    .skip 4096
+.balign 4096
 pd0:
     .skip 4096
 .balign 4096
@@ -53,8 +56,11 @@ pd2:
 .balign 4096
 pd3:
     .skip 4096
+.balign 4096
+kernel_pd:
+    .skip 4096
 
-.section .data, "aw", @progbits
+.section .boot.data, "aw", @progbits
 .balign 8
 gdt64:
     .quad 0x0000000000000000                // null
@@ -67,7 +73,11 @@ gdt32_ptr:
     .word gdt64_end - gdt64 - 1
     .long gdt64
 
-.section .text, "ax", @progbits
+.balign 8
+kmain_off2m:
+    .long 0
+
+.section .boot.text, "ax", @progbits
 .globl _start
 .type _start, @function
 .code32
@@ -98,6 +108,8 @@ _start:
     or      eax, 0x3
     mov     [pml4], eax
     mov     dword ptr [pml4 + 4], 0
+
+    // (Higher-half kernel mapping is set up after entering long mode)
 
     // PDPT entries -> 4 PDs
     mov     edi, OFFSET pdpt
@@ -173,6 +185,44 @@ _start:
     add     edi, 8
     loop    .pd3_loop
 
+    // Map higher-half kernel region now (before enabling paging)
+    // PML4[511] -> kernel_pdpt; kernel_pdpt[510] -> kernel_pd
+    mov     eax, OFFSET kernel_pdpt
+    or      eax, 0x3
+    mov     dword ptr [pml4 + 511*8], eax
+    mov     dword ptr [pml4 + 511*8 + 4], 0
+
+    mov     edi, OFFSET kernel_pdpt
+    mov     eax, OFFSET kernel_pd
+    or      eax, 0x3
+    mov     dword ptr [edi + 510*8], eax
+    mov     dword ptr [edi + 510*8 + 4], 0
+
+    // Fill kernel PD with 2 MiB pages covering full 1GiB window
+    // Start physical at the 2MiB-aligned base containing kmain
+    .extern kmain
+    mov     ebx, OFFSET kmain
+    and     ebx, 0xFFE00000
+    // Save kmain offset within 2MiB
+    mov     eax, OFFSET kmain
+    and     eax, 0x001FFFFF
+    mov     dword ptr [kmain_off2m], eax
+    mov     ecx, 512
+    mov     edi, OFFSET kernel_pd
+    mov     edx, 0x83                  // present|write|PS
+.kpd32_loop:
+    test    ecx, ecx
+    jz      .kpd32_done
+    mov     eax, ebx
+    or      eax, edx
+    mov     [edi], eax
+    mov     dword ptr [edi + 4], 0
+    add     ebx, 0x200000
+    add     edi, 8
+    dec     ecx
+    jmp     .kpd32_loop
+.kpd32_done:
+
     // Enable PAE
     mov     eax, cr4
     or      eax, (1 << 5)       // PAE
@@ -211,13 +261,20 @@ long_mode_entry:
     and     rsp, -16
     sub     rsp, 8
 
+    // Higher-half mapping already established before switching to 64-bit
+
     // Pass Multiboot2 params: rdi=magic, rsi=info
     mov     edi, dword ptr [mb_magic]
     mov     rsi, qword ptr [mb_info]
 
-    // Enter kernel
-    .extern kmain
-    call    kmain
+    // Enter kernel in higher half: jump to KERNEL_VMA + offset_in_2MiB
+    .set    KERNEL_VMA, 0xFFFFFFFF80000000
+    mov     eax, dword ptr [kmain_off2m]
+    mov     edx, 0
+    mov     edx, eax
+    movabs  rax, KERNEL_VMA
+    add     rax, rdx
+    call    rax
 
 .hang:
     cli
@@ -226,7 +283,7 @@ long_mode_entry:
 
 .size _start, . - _start
 
-.section .rodata, "a", @progbits
+.section .boot.rodata, "a", @progbits
 .balign 4
 long_mode_ptr:
     .long   long_mode_entry
