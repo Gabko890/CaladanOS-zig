@@ -14,29 +14,8 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
         halt();
     }
 
-    const info_ptr: usize = info_addr;
-
-    const framebuffer = mb2.locateFramebuffer(info_ptr);
-    if (framebuffer) |fb| {
-        switch (fb.kind) {
-            .text => {
-                if (fb.text_buffer) |text_ptr| {
-                    console.initializeText(text_ptr, fb.width, fb.height);
-                } else {
-                    console.initializeLegacy();
-                }
-            },
-            else => {
-                if (fb.address) |addr| {
-                    console.initializeFramebuffer(addr, fb.pitch, fb.width, fb.height, fb.bpp);
-                } else {
-                    console.initializeLegacy();
-                }
-            },
-        }
-    } else {
-        console.initializeLegacy();
-    }
+    const init_console = @import("console_init.zig");
+    init_console.initializeFromMultiboot(info_addr);
 
     console.clear();
     console.puts("CaladanOS-zig kernel (x86_64) loaded!\n");
@@ -50,25 +29,8 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     const logical = cpu.logicalProcessorCount();
     console.printf("Logical processors: {d}\n", .{logical});
 
-    if (mb2.memoryMap(info_ptr)) |map| {
-        console.puts("Memory map (bootloader):\n");
-        var total_usable: u64 = 0;
-        var idx: usize = 0;
-        while (idx < map.count) : (idx += 1) {
-            const entry = map.entries[idx];
-            const type_str = mb2.memoryTypeName(entry.type);
-            console.printf(
-                "  region {d}: base=0x{X:0>16}, len=0x{X:0>16} ({s})\n",
-                .{ idx, entry.addr, entry.len, type_str },
-            );
-            if (entry.type == @intFromEnum(mb2.MemoryType.available)) {
-                total_usable += entry.len;
-            }
-        }
-        console.printf(
-            "Total usable memory: {d} MiB\n",
-            .{total_usable / (1024 * 1024)},
-        );
+    if (mb2.BootloaderMemoryMap.init(info_addr)) |bl_map| {
+        bl_map.print();
     } else {
         console.puts("No memory map provided by bootloader\n");
     }

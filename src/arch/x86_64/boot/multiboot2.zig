@@ -1,4 +1,5 @@
 const std = @import("std");
+const console = @import("console");
 
 pub const bootloader_magic: u32 = 0x36d76289;
 
@@ -37,6 +38,47 @@ pub const MemoryMapEntry = extern struct {
 pub const MemoryMap = struct {
     entries: [*]const MemoryMapEntry,
     count: usize,
+};
+
+// A convenient, self-contained view of the bootloader's memory map.
+// Provides a constructor from the Multiboot2 info block and a printer
+pub const BootloaderMemoryMap = struct {
+    entries: []const MemoryMapEntry,
+    total_usable: u64,
+
+    pub fn init(info_addr: usize) ?BootloaderMemoryMap {
+        const map = memoryMap(info_addr) orelse return null;
+
+        var total: u64 = 0;
+        var i: usize = 0;
+        while (i < map.count) : (i += 1) {
+            const entry = map.entries[i];
+            if (entry.type == @intFromEnum(MemoryType.available))
+                total += entry.len;
+        }
+
+        return BootloaderMemoryMap{
+            .entries = map.entries[0..map.count],
+            .total_usable = total,
+        };
+    }
+
+    pub fn print(self: BootloaderMemoryMap) void {
+        console.puts("Memory map (bootloader):\n");
+        var idx: usize = 0;
+        while (idx < self.entries.len) : (idx += 1) {
+            const entry = self.entries[idx];
+            const type_str = memoryTypeName(entry.type);
+            console.printf(
+                "  region {d}: base=0x{X:0>16}, len=0x{X:0>16} ({s})\n",
+                .{ idx, entry.addr, entry.len, type_str },
+            );
+        }
+        console.printf(
+            "Total usable memory: {d} MiB\n",
+            .{self.total_usable / (1024 * 1024)},
+        );
+    }
 };
 
 const InfoHeader = extern struct {

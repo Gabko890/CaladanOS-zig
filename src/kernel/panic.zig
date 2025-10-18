@@ -30,16 +30,37 @@ pub fn panic(message: []const u8, _: ?*std.builtin.StackTrace, ret_addr: ?usize)
 
 const Regs = extern struct {
     // General-purpose registers (offsets 0x00..0x78)
-    rax: usize, rbx: usize, rcx: usize, rdx: usize,
-    rsi: usize, rdi: usize, rbp: usize, rsp: usize,
-    r8: usize, r9: usize, r10: usize, r11: usize,
-    r12: usize, r13: usize, r14: usize, r15: usize,
+    rax: usize,
+    rbx: usize,
+    rcx: usize,
+    rdx: usize,
+    rsi: usize,
+    rdi: usize,
+    rbp: usize,
+    rsp: usize,
+    r8: usize,
+    r9: usize,
+    r10: usize,
+    r11: usize,
+    r12: usize,
+    r13: usize,
+    r14: usize,
+    r15: usize,
     // RFLAGS (0x80)
     rflags: usize,
     // Control registers (0x88..0xA8)
-    cr0: usize, cr2: usize, cr3: usize, cr4: usize, cr8: usize,
+    cr0: usize,
+    cr2: usize,
+    cr3: usize,
+    cr4: usize,
+    cr8: usize,
     // Segment selectors, zero-extended (0xB0..0xD8)
-    cs: usize, ds: usize, es: usize, fs: usize, gs: usize, ss: usize,
+    cs: usize,
+    ds: usize,
+    es: usize,
+    fs: usize,
+    gs: usize,
+    ss: usize,
 };
 
 extern fn capture_regs(regs: *Regs) void;
@@ -53,7 +74,7 @@ fn dumpRegisters() void {
     printReg2("RCX", regs.rcx, "RDX", regs.rdx);
     printReg2("RSI", regs.rsi, "RDI", regs.rdi);
     printReg2("RBP", regs.rbp, "RSP", regs.rsp);
-    printReg2(" R8", regs.r8,  " R9", regs.r9);
+    printReg2(" R8", regs.r8, " R9", regs.r9);
     printReg2("R10", regs.r10, "R11", regs.r11);
     printReg2("R12", regs.r12, "R13", regs.r13);
     printReg2("R14", regs.r14, "R15", regs.r15);

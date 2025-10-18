@@ -57,6 +57,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     multiboot_module.addImport("build_options", build_options_mod);
+    // Allow mb2 helpers to print via the console.
+    multiboot_module.addImport("console", console_module);
 
     const cpuid_module = b.createModule(.{
         .root_source_file = b.path("src/arch/x86_64/cpu/cpuid.zig"),
