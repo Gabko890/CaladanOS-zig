@@ -61,6 +61,17 @@ extern fn idt_lidt_load(idtr_ptr: *const Idtr) void;
 extern fn idt_default_interrupt_handler() void;
 extern fn idt_default_exception_error() void;
 extern fn idt_default_exception_noerror() void;
+extern fn idt_double_fault_entry() void;
+extern fn idt_machine_check_entry() void;
+
+// Panic helper for Double Fault (#DF). Never returns.
+pub export fn idt_double_fault_panic() noreturn {
+    @panic("Double Fault (#DF)");
+}
+
+pub export fn idt_machine_check_panic() noreturn {
+    @panic("Machine Check (#MC)");
+}
 
 /// Initialize IDT with default handlers and load it with LIDT.
 pub fn init() void {
@@ -75,6 +86,11 @@ pub fn init() void {
     for (err_vecs) |v| {
         setEntry(v, &idt_default_exception_error, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
     }
+
+    // Override Double Fault (#DF, vector 8) with dedicated panic stub
+    setEntry(8, &idt_double_fault_entry, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
+    // Override Machine Check (#MC, vector 18) with dedicated panic stub
+    setEntry(18, &idt_machine_check_entry, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
 
     // Common PIC IRQ range when remapped: 0x20..0x2F
     var i: usize = 0x20;

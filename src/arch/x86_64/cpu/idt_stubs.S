@@ -138,3 +138,21 @@ idt_default_exception_error:
 idt_lidt_load:
     lidt    [rdi]
     ret
+
+.globl idt_double_fault_entry
+.type idt_double_fault_entry, @function
+// Double Fault (#DF) entry point; call Zig panic helper and never return
+idt_double_fault_entry:
+    call    idt_double_fault_panic
+    cli
+    hlt
+    jmp     idt_double_fault_entry
+
+.globl idt_machine_check_entry
+.type idt_machine_check_entry, @function
+// Machine Check (#MC) entry point; call Zig panic helper and never return
+idt_machine_check_entry:
+    call    idt_machine_check_panic
+    cli
+    hlt
+    jmp     idt_machine_check_entry

@@ -23,6 +23,7 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
 
     // Initialize and load a default IDT.
     idt.init();
+    idt.interruptsEnable();
 
     var brand_buf: [64]u8 = undefined;
     const brand = cpu.writeBrandString(&brand_buf);
