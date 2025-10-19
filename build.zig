@@ -83,6 +83,8 @@ pub fn build(b: *std.Build) void {
     // Add 32-bit bootstrap/long-mode trampoline and register capture helper
     kernel.addAssemblyFile(b.path("src/arch/x86_64/boot/boot.S"));
     kernel.addAssemblyFile(b.path("src/arch/x86_64/cpu/regs.S"));
+    // Default IDT handler stubs (64-bit)
+    kernel.addAssemblyFile(b.path("src/arch/x86_64/cpu/idt_stubs.S"));
     kernel.setLinkerScript(b.path("src/arch/x86_64/linker/kernel.ld"));
     const install_kernel = b.addInstallArtifact(kernel, .{});
 

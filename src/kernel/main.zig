@@ -2,6 +2,7 @@ const std = @import("std");
 const console = @import("console");
 const mb2 = @import("arch_boot");
 const cpu = @import("arch_cpu");
+const idt = @import("idt.zig");
 // Re-export custom panic handler from a dedicated file so it becomes the root panic.
 pub const panic = @import("panic.zig").panic;
 
@@ -19,6 +20,9 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
 
     console.clear();
     console.puts("CaladanOS-zig kernel (x86_64) loaded!\n");
+
+    // Initialize and load a default IDT.
+    idt.init();
 
     var brand_buf: [64]u8 = undefined;
     const brand = cpu.writeBrandString(&brand_buf);
