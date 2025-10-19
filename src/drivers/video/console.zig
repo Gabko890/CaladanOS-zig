@@ -222,7 +222,7 @@ pub fn putChar(c: u8) void {
 
     if (c == '\n') {
         column = 0;
-        row = (row + 1) % height;
+        newline();
         return;
     }
 
@@ -230,7 +230,65 @@ pub fn putChar(c: u8) void {
     column += 1;
     if (column == width) {
         column = 0;
-        row = (row + 1) % height;
+        newline();
+    }
+}
+
+fn newline() void {
+    if (row + 1 < height) {
+        row += 1;
+        return;
+    }
+    // Need to scroll up by one row
+    scrollUp();
+    row = height - 1;
+}
+
+fn scrollUp() void {
+    switch (backend) {
+        .text => {
+            const buf = text_buffer orelse return;
+            if (height == 0) return;
+            var y: usize = 0;
+            while (y + 1 < height) : (y += 1) {
+                const dst_idx = y * width;
+                const src_idx = (y + 1) * width;
+                var x: usize = 0;
+                while (x < width) : (x += 1) {
+                    buf[dst_idx + x] = buf[src_idx + x];
+                }
+            }
+            // Clear last row
+            const last_row = (height - 1) * width;
+            var x: usize = 0;
+            while (x < width) : (x += 1) {
+                buf[last_row + x] = vgaEntry(' ', color);
+            }
+        },
+        .graphics => {
+            if (gfx_state) |*state| {
+                const row_px: usize = psf_font.height;
+                if (row_px == 0 or state.fb_height <= row_px) {
+                    // Just clear if we can't scroll meaningfully
+                    const bg = paletteColor(backgroundIndex(color));
+                    fillRect(state, 0, 0, state.fb_width, state.fb_height, bg);
+                    return;
+                }
+                // Copy framebuffer up by one text row (row_px pixels)
+                var y: usize = 0;
+                while (y + row_px < state.fb_height) : (y += 1) {
+                    const dst_off = y * state.pitch;
+                    const src_off = (y + row_px) * state.pitch;
+                    var i: usize = 0;
+                    while (i < state.pitch) : (i += 1) {
+                        state.buffer[dst_off + i] = state.buffer[src_off + i];
+                    }
+                }
+                // Clear the bottom band
+                const bg2 = paletteColor(backgroundIndex(color));
+                fillRect(state, 0, state.fb_height - row_px, state.fb_width, row_px, bg2);
+            }
+        },
     }
 }
 

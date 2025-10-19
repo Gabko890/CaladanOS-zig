@@ -73,6 +73,7 @@ pub export fn idt_machine_check_panic() noreturn {
     @panic("Machine Check (#MC)");
 }
 
+
 /// Initialize IDT with default handlers and load it with LIDT.
 pub fn init() void {
     // Populate all entries with safe defaults (exception without error code)
