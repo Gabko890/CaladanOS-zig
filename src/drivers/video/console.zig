@@ -6,7 +6,7 @@ const serial = if (build_options.enable_serial)
     @import("serial")
 else
     struct {
-        pub inline fn writeByte(_: u8) void {}
+        pub inline fn write_byte(_: u8) void {}
         pub inline fn write(_: []const u8) void {}
     };
 
@@ -52,7 +52,7 @@ const PSFFont = struct {
     glyphs: []const u8,
 };
 
-fn loadEmbeddedFont() PSFFont {
+fn load_embedded_font() PSFFont {
     const hdr = @as(*const PSF1Header, @ptrCast(font_data.ptr));
     if (!(hdr.magic0 == 0x36 and hdr.magic1 == 0x04))
         @panic("Invalid PSF font header");
@@ -71,11 +71,11 @@ fn loadEmbeddedFont() PSFFont {
 var psf_font: PSFFont = undefined;
 
 // VGA color packing and palette
-fn vgaEntryColor(fg: ConsoleColors, bg: ConsoleColors) u8 {
+fn vga_entry_color(fg: ConsoleColors, bg: ConsoleColors) u8 {
     return @intFromEnum(fg) | (@intFromEnum(bg) << 4);
 }
 
-fn vgaEntry(uc: u8, new_color: u8) u16 {
+fn vga_entry(uc: u8, new_color: u8) u16 {
     const c: u16 = new_color;
     return uc | (c << 8);
 }
@@ -113,18 +113,18 @@ const GraphicsState = struct {
 var backend: Backend = .text;
 var row: usize = 0;
 var column: usize = 0;
-var color = vgaEntryColor(ConsoleColors.LightGray, ConsoleColors.Black);
+var color = vga_entry_color(ConsoleColors.LightGray, ConsoleColors.Black);
 var text_buffer: ?[*]volatile u16 = null;
 var gfx_state: ?GraphicsState = null;
 var width: usize = VGA_WIDTH;
 var height: usize = VGA_HEIGHT;
 
 // Initialization
-pub fn initializeLegacy() void {
-    initializeText(@ptrFromInt(0xB8000), VGA_WIDTH, VGA_HEIGHT);
+pub fn initialize_legacy() void {
+    initialize_text(@ptrFromInt(0xB8000), VGA_WIDTH, VGA_HEIGHT);
 }
 
-pub fn initializeText(ptr: [*]volatile u16, w: u32, h: u32) void {
+pub fn initialize_text(ptr: [*]volatile u16, w: u32, h: u32) void {
     backend = .text;
     text_buffer = ptr;
     gfx_state = null;
@@ -135,8 +135,8 @@ pub fn initializeText(ptr: [*]volatile u16, w: u32, h: u32) void {
     clear();
 }
 
-pub fn initializeFramebuffer(ptr: [*]volatile u8, pitch: u32, w: u32, h: u32, bpp: u8) void {
-    psf_font = loadEmbeddedFont();
+pub fn initialize_framebuffer(ptr: [*]volatile u8, pitch: u32, w: u32, h: u32, bpp: u8) void {
+    psf_font = load_embedded_font();
     backend = .graphics;
     text_buffer = null;
     gfx_state = GraphicsState{
@@ -157,7 +157,7 @@ pub fn initializeFramebuffer(ptr: [*]volatile u8, pitch: u32, w: u32, h: u32, bp
 }
 
 // Utilities
-pub fn setColor(new_color: u8) void {
+pub fn set_color(new_color: u8) void {
     color = new_color;
 }
 
@@ -166,59 +166,59 @@ pub fn clear() void {
         .text => {
             const buf = text_buffer orelse return;
             const size = width * height;
-            @memset(buf[0..size], vgaEntry(' ', color));
+            @memset(buf[0..size], vga_entry(' ', color));
         },
         .graphics => {
             if (gfx_state) |*state| {
-                const bg = paletteColor(backgroundIndex(color));
-                fillRect(state, 0, 0, state.fb_width, state.fb_height, bg);
+                const bg = palette_color(background_index(color));
+                fill_rect(state, 0, 0, state.fb_width, state.fb_height, bg);
             }
         },
     }
 }
 
 // Move the logical cursor to the top-left corner (column 0, row 0).
-pub fn homeTopLeft() void {
+pub fn home_top_left() void {
     column = 0;
     row = 0;
 }
 
-fn foregroundIndex(value: u8) u8 {
+fn foreground_index(value: u8) u8 {
     return value & 0x0F;
 }
 
-fn backgroundIndex(value: u8) u8 {
+fn background_index(value: u8) u8 {
     return (value >> 4) & 0x0F;
 }
 
-fn paletteColor(index: u8) [3]u8 {
+fn palette_color(index: u8) [3]u8 {
     const idx: usize = @intCast(index & 0x0F);
     return palette[idx];
 }
 
 // Character output
-pub fn putCharAt(c: u8, new_color: u8, x: usize, y: usize) void {
+pub fn put_char_at(c: u8, new_color: u8, x: usize, y: usize) void {
     if (x >= width or y >= height) return;
 
     switch (backend) {
         .text => {
             const buf = text_buffer orelse return;
             const index = y * width + x;
-            buf[index] = vgaEntry(c, new_color);
+            buf[index] = vga_entry(c, new_color);
         },
         .graphics => {
             if (gfx_state) |*state| {
-                const fg = paletteColor(foregroundIndex(new_color));
-                const bg = paletteColor(backgroundIndex(new_color));
-                drawGlyph(state, x, y, c, fg, bg);
+                const fg = palette_color(foreground_index(new_color));
+                const bg = palette_color(background_index(new_color));
+                draw_glyph(state, x, y, c, fg, bg);
             }
         },
     }
 }
 
-pub fn putChar(c: u8) void {
+pub fn put_char(c: u8) void {
     if (build_options.enable_serial)
-        serial.writeByte(c);
+        serial.write_byte(c);
 
     if (c == '\n') {
         column = 0;
@@ -226,7 +226,7 @@ pub fn putChar(c: u8) void {
         return;
     }
 
-    putCharAt(c, color, column, row);
+    put_char_at(c, color, column, row);
     column += 1;
     if (column == width) {
         column = 0;
@@ -240,11 +240,11 @@ fn newline() void {
         return;
     }
     // Need to scroll up by one row
-    scrollUp();
+    scroll_up();
     row = height - 1;
 }
 
-fn scrollUp() void {
+fn scroll_up() void {
     switch (backend) {
         .text => {
             const buf = text_buffer orelse return;
@@ -262,7 +262,7 @@ fn scrollUp() void {
             const last_row = (height - 1) * width;
             var x: usize = 0;
             while (x < width) : (x += 1) {
-                buf[last_row + x] = vgaEntry(' ', color);
+                buf[last_row + x] = vga_entry(' ', color);
             }
         },
         .graphics => {
@@ -270,8 +270,8 @@ fn scrollUp() void {
                 const row_px: usize = psf_font.height;
                 if (row_px == 0 or state.fb_height <= row_px) {
                     // Just clear if we can't scroll meaningfully
-                    const bg = paletteColor(backgroundIndex(color));
-                    fillRect(state, 0, 0, state.fb_width, state.fb_height, bg);
+                    const bg = palette_color(background_index(color));
+                    fill_rect(state, 0, 0, state.fb_width, state.fb_height, bg);
                     return;
                 }
                 // Copy framebuffer up by one text row (row_px pixels)
@@ -285,15 +285,15 @@ fn scrollUp() void {
                     }
                 }
                 // Clear the bottom band
-                const bg2 = paletteColor(backgroundIndex(color));
-                fillRect(state, 0, state.fb_height - row_px, state.fb_width, row_px, bg2);
+                const bg2 = palette_color(background_index(color));
+                fill_rect(state, 0, state.fb_height - row_px, state.fb_width, row_px, bg2);
             }
         },
     }
 }
 
 // Glyph drawing
-fn drawGlyph(state: *GraphicsState, cell_x: usize, cell_y: usize, ch: u8, fg: [3]u8, bg: [3]u8) void {
+fn draw_glyph(state: *GraphicsState, cell_x: usize, cell_y: usize, ch: u8, fg: [3]u8, bg: [3]u8) void {
     const font = psf_font;
     const px = cell_x * font.width;
     const py = cell_y * font.height;
@@ -312,23 +312,23 @@ fn drawGlyph(state: *GraphicsState, cell_x: usize, cell_y: usize, ch: u8, fg: [3
             const mask: u8 = @as(u8, 0x80) >> shift_amt;
 
             const rgb = if ((bits & mask) != 0) fg else bg;
-            setPixel(state, px + x, py + y, rgb);
+            set_pixel(state, px + x, py + y, rgb);
         }
     }
 }
 
 // Framebuffer helpers
-fn fillRect(state: *GraphicsState, start_x: usize, start_y: usize, rect_w: usize, rect_h: usize, fill_rgb: [3]u8) void {
+fn fill_rect(state: *GraphicsState, start_x: usize, start_y: usize, rect_w: usize, rect_h: usize, fill_rgb: [3]u8) void {
     var y = start_y;
     while (y < start_y + rect_h and y < state.fb_height) : (y += 1) {
         var x = start_x;
         while (x < start_x + rect_w and x < state.fb_width) : (x += 1) {
-            setPixel(state, x, y, fill_rgb);
+            set_pixel(state, x, y, fill_rgb);
         }
     }
 }
 
-fn setPixel(state: *GraphicsState, x: usize, y: usize, rgb: [3]u8) void {
+fn set_pixel(state: *GraphicsState, x: usize, y: usize, rgb: [3]u8) void {
     if (x >= state.fb_width or y >= state.fb_height) return;
     const offset = y * state.pitch + x * state.bytes_per_pixel;
     const pixel_ptr = state.buffer + offset;
@@ -360,7 +360,7 @@ fn setPixel(state: *GraphicsState, x: usize, y: usize, rgb: [3]u8) void {
 // Print utilities
 pub fn puts(data: []const u8) void {
     for (data) |c|
-        putChar(c);
+        put_char(c);
 }
 
 pub fn printf(comptime format: []const u8, args: anytype) void {

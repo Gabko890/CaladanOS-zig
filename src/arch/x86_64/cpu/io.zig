@@ -1,6 +1,6 @@
 const builtin = @import("builtin");
 
-pub fn supportsPortIo() bool {
+pub fn supports_port_io() bool {
     return switch (builtin.target.cpu.arch) {
         .x86, .x86_64 => true,
         else => false,

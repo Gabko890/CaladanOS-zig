@@ -31,15 +31,15 @@ fn cpuid_raw(leaf: u32, subleaf: u32) CpuidResult {
     };
 }
 
-fn maxBasicLeaf() u32 {
+fn max_basic_leaf() u32 {
     return cpuid_raw(0x00, 0).eax;
 }
 
-fn maxExtendedLeaf() u32 {
+fn max_extended_leaf() u32 {
     return cpuid_raw(0x8000_0000, 0).eax;
 }
 
-fn normalizeCpuidString(buffer: []u8, original_len: usize) []const u8 {
+fn normalize_cpuid_string(buffer: []u8, original_len: usize) []const u8 {
     var write_idx: usize = 0;
     var idx: usize = 0;
 
@@ -73,7 +73,7 @@ fn normalizeCpuidString(buffer: []u8, original_len: usize) []const u8 {
     return buffer[0..write_idx];
 }
 
-fn ensureNonEmpty(buffer: []u8, slice: []const u8) []const u8 {
+fn ensure_non_empty(buffer: []u8, slice: []const u8) []const u8 {
     if (slice.len != 0) return slice;
     const fallback = "unknown";
     const count = @min(fallback.len, buffer.len);
@@ -82,7 +82,7 @@ fn ensureNonEmpty(buffer: []u8, slice: []const u8) []const u8 {
     return buffer[0..count];
 }
 
-fn topologyLogicalCount(leaf: u32) ?u32 {
+fn topology_logical_count(leaf: u32) ?u32 {
     var level: u32 = 0;
     var best_overall: u32 = 0;
     var core_level: ?u32 = null;
@@ -102,15 +102,15 @@ fn topologyLogicalCount(leaf: u32) ?u32 {
     return if (best_overall != 0) best_overall else null;
 }
 
-pub fn logicalProcessorCount() u32 {
-    const max_basic = maxBasicLeaf();
+pub fn logical_processor_count() u32 {
+    const max_basic = max_basic_leaf();
 
     if (max_basic >= 0x1F) {
-        if (topologyLogicalCount(0x1F)) |count| return count;
+        if (topology_logical_count(0x1F)) |count| return count;
     }
 
     if (max_basic >= 0x0B) {
-        if (topologyLogicalCount(0x0B)) |count| return count;
+        if (topology_logical_count(0x0B)) |count| return count;
     }
 
     if (max_basic >= 0x04) {
@@ -133,7 +133,7 @@ pub fn logicalProcessorCount() u32 {
     return 1;
 }
 
-pub fn writeVendorString(buffer: []u8) []const u8 {
+pub fn write_vendor_string(buffer: []u8) []const u8 {
     if (buffer.len < 12) return buffer[0..0];
     const res = cpuid_raw(0x00, 0);
     const ebx_bytes: [4]u8 = @bitCast(res.ebx);
@@ -143,14 +143,14 @@ pub fn writeVendorString(buffer: []u8) []const u8 {
     inline for (edx_bytes, 0..) |b, i| buffer[i + 4] = b;
     inline for (ecx_bytes, 0..) |b, i| buffer[i + 8] = b;
 
-    const normalized = normalizeCpuidString(buffer, 12);
-    return ensureNonEmpty(buffer, normalized);
+    const normalized = normalize_cpuid_string(buffer, 12);
+    return ensure_non_empty(buffer, normalized);
 }
 
-pub fn writeBrandString(buffer: []u8) []const u8 {
-    const max_ext = maxExtendedLeaf();
-    if (max_ext < 0x8000_0004) return writeVendorString(buffer);
-    if (buffer.len < 48) return ensureNonEmpty(buffer, buffer[0..0]);
+pub fn write_brand_string(buffer: []u8) []const u8 {
+    const max_ext = max_extended_leaf();
+    if (max_ext < 0x8000_0004) return write_vendor_string(buffer);
+    if (buffer.len < 48) return ensure_non_empty(buffer, buffer[0..0]);
 
     var offset: usize = 0;
     inline for (&.{ 0x8000_0002, 0x8000_0003, 0x8000_0004 }) |leaf| {
@@ -173,7 +173,7 @@ pub fn writeBrandString(buffer: []u8) []const u8 {
         break;
     }
 
-    if (end == 0) return ensureNonEmpty(buffer, buffer[0..0]);
-    const normalized = normalizeCpuidString(buffer, end);
-    return ensureNonEmpty(buffer, normalized);
+    if (end == 0) return ensure_non_empty(buffer, buffer[0..0]);
+    const normalized = normalize_cpuid_string(buffer, end);
+    return ensure_non_empty(buffer, normalized);
 }

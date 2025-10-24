@@ -47,7 +47,7 @@ pub const BootloaderMemoryMap = struct {
     total_usable: u64,
 
     pub fn init(info_addr: usize) ?BootloaderMemoryMap {
-        const map = memoryMap(info_addr) orelse return null;
+        const map = memory_map(info_addr) orelse return null;
 
         var total: u64 = 0;
         var i: usize = 0;
@@ -68,7 +68,7 @@ pub const BootloaderMemoryMap = struct {
         var idx: usize = 0;
         while (idx < self.entries.len) : (idx += 1) {
             const entry = self.entries[idx];
-            const type_str = memoryTypeName(entry.type);
+            const type_str = memory_type_name(entry.type);
             console.printf(
                 "  region {d}: base=0x{X:0>16}, len=0x{X:0>16} ({s})\n",
                 .{ idx, entry.addr, entry.len, type_str },
@@ -108,11 +108,11 @@ const MemoryMapTag = extern struct {
     entry_version: u32,
 };
 
-fn alignTo8(value: usize) usize {
+fn align_to_8(value: usize) usize {
     return (value + 7) & ~@as(usize, 7);
 }
 
-pub fn locateFramebuffer(info_addr: usize) ?FramebufferInfo {
+pub fn locate_framebuffer(info_addr: usize) ?FramebufferInfo {
     const header_ptr = @as(*const InfoHeader, @ptrFromInt(info_addr));
     var cursor = info_addr + @sizeOf(InfoHeader);
     const end = info_addr + header_ptr.total_size;
@@ -145,13 +145,13 @@ pub fn locateFramebuffer(info_addr: usize) ?FramebufferInfo {
             return info;
         }
 
-        cursor = alignTo8(cursor + tag.size);
+        cursor = align_to_8(cursor + tag.size);
     }
 
     return null;
 }
 
-pub fn memoryMap(info_addr: usize) ?MemoryMap {
+pub fn memory_map(info_addr: usize) ?MemoryMap {
     const header_ptr = @as(*const InfoHeader, @ptrFromInt(info_addr));
     var cursor = info_addr + @sizeOf(InfoHeader);
     const end = info_addr + header_ptr.total_size;
@@ -172,13 +172,13 @@ pub fn memoryMap(info_addr: usize) ?MemoryMap {
             };
         }
 
-        cursor = alignTo8(cursor + tag.size);
+        cursor = align_to_8(cursor + tag.size);
     }
 
     return null;
 }
 
-pub fn memoryTypeName(value: u32) []const u8 {
+pub fn memory_type_name(value: u32) []const u8 {
     return switch (value) {
         @intFromEnum(MemoryType.available) => "usable",
         @intFromEnum(MemoryType.reserved) => "reserved",

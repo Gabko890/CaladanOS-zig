@@ -42,7 +42,7 @@ var table: [IDT_SIZE]Gate = [_]Gate{Gate{
 
 var idtr: Idtr = .{ .limit = 0, .base = 0 };
 
-inline fn makeGate(addr: u64, selector: u16, type_attr: u8, ist: u8) Gate {
+inline fn make_gate(addr: u64, selector: u16, type_attr: u8, ist: u8) Gate {
     return Gate{
         .offset_low = @intCast(addr & 0xFFFF),
         .selector = selector,
@@ -73,30 +73,29 @@ pub export fn idt_machine_check_panic() noreturn {
     @panic("Machine Check (#MC)");
 }
 
-
 /// Initialize IDT with default handlers and load it with LIDT.
 pub fn init() void {
     // Populate all entries with safe defaults (exception without error code)
     const def_exc_addr: u64 = @intFromPtr(&idt_default_exception_noerror);
     for (table[0..]) |*g| {
-        g.* = makeGate(def_exc_addr, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE, 0);
+        g.* = make_gate(def_exc_addr, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE, 0);
     }
 
     // Exceptions that push an error code
     const err_vecs = [_]u8{ 8, 10, 11, 12, 13, 14, 17, 21, 29, 30 };
     for (err_vecs) |v| {
-        setEntry(v, &idt_default_exception_error, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
+        set_entry(v, &idt_default_exception_error, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
     }
 
     // Override Double Fault (#DF, vector 8) with dedicated panic stub
-    setEntry(8, &idt_double_fault_entry, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
+    set_entry(8, &idt_double_fault_entry, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
     // Override Machine Check (#MC, vector 18) with dedicated panic stub
-    setEntry(18, &idt_machine_check_entry, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
+    set_entry(18, &idt_machine_check_entry, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
 
     // Common PIC IRQ range when remapped: 0x20..0x2F
     var i: usize = 0x20;
     while (i <= 0x2F) : (i += 1) {
-        setEntry(i, &idt_default_interrupt_handler, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
+        set_entry(i, &idt_default_interrupt_handler, CODE_SELECTOR, TYPE_ATTR_INTERRUPT_GATE);
     }
 
     // Load IDTR
@@ -108,13 +107,13 @@ pub fn init() void {
 }
 
 /// Set an IDT entry.
-pub fn setEntry(index: usize, handler: anytype, selector: u16, flags: u8) void {
+pub fn set_entry(index: usize, handler: anytype, selector: u16, flags: u8) void {
     std.debug.assert(index < IDT_SIZE);
     const addr: u64 = @intFromPtr(handler);
-    table[index] = makeGate(addr, selector, flags, 0);
+    table[index] = make_gate(addr, selector, flags, 0);
 }
 
 /// Enable maskable interrupts (STI)
-pub fn interruptsEnable() void {
+pub fn interrupts_enable() void {
     asm volatile ("sti" ::: .{ .memory = true });
 }

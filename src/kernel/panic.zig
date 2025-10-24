@@ -4,14 +4,14 @@ const console = @import("console");
 // Custom panic handler: prints message to screen and halts the CPU.
 pub fn panic(message: []const u8, _: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
     // Ensure a text console is available even very early.
-    // console.initializeLegacy();
+    // console.initialize_legacy();
 
     const red_on_black: u8 = @intFromEnum(console.ConsoleColors.LightRed) | (@intFromEnum(console.ConsoleColors.Black) << 4);
-    console.setColor(red_on_black);
+    console.set_color(red_on_black);
     console.clear();
-    console.homeTopLeft();
+    console.home_top_left();
 
-    printTitle();
+    print_title();
     console.puts("Message: ");
     console.puts(message);
     console.puts("\n");
@@ -19,8 +19,8 @@ pub fn panic(message: []const u8, _: ?*std.builtin.StackTrace, ret_addr: ?usize)
     if (ret_addr) |ra| {
         console.printf("RIP: 0x{X:0>16}\n", .{ra});
     }
-    printDivider();
-    dumpRegisters();
+    print_divider();
+    dump_registers();
 
     // Halt forever
     while (true) {
@@ -65,43 +65,43 @@ const Regs = extern struct {
 
 extern fn capture_regs(regs: *Regs) void;
 
-fn dumpRegisters() void {
+fn dump_registers() void {
     var regs: Regs = undefined;
     capture_regs(&regs);
 
     console.puts("General Registers:\n");
-    printReg2("RAX", regs.rax, "RBX", regs.rbx);
-    printReg2("RCX", regs.rcx, "RDX", regs.rdx);
-    printReg2("RSI", regs.rsi, "RDI", regs.rdi);
-    printReg2("RBP", regs.rbp, "RSP", regs.rsp);
-    printReg2(" R8", regs.r8, " R9", regs.r9);
-    printReg2("R10", regs.r10, "R11", regs.r11);
-    printReg2("R12", regs.r12, "R13", regs.r13);
-    printReg2("R14", regs.r14, "R15", regs.r15);
+    print_reg2("RAX", regs.rax, "RBX", regs.rbx);
+    print_reg2("RCX", regs.rcx, "RDX", regs.rdx);
+    print_reg2("RSI", regs.rsi, "RDI", regs.rdi);
+    print_reg2("RBP", regs.rbp, "RSP", regs.rsp);
+    print_reg2(" R8", regs.r8, " R9", regs.r9);
+    print_reg2("R10", regs.r10, "R11", regs.r11);
+    print_reg2("R12", regs.r12, "R13", regs.r13);
+    print_reg2("R14", regs.r14, "R15", regs.r15);
 
     console.puts("\nControl Registers:\n");
-    printReg2("CR0", regs.cr0, "CR2", regs.cr2);
-    printReg2("CR3", regs.cr3, "CR4", regs.cr4);
-    printReg2("CR8", regs.cr8, "RFL", regs.rflags);
+    print_reg2("CR0", regs.cr0, "CR2", regs.cr2);
+    print_reg2("CR3", regs.cr3, "CR4", regs.cr4);
+    print_reg2("CR8", regs.cr8, "RFL", regs.rflags);
 
     console.puts("\nSegment Selectors:\n");
-    printSeg2("CS", @as(u16, @truncate(regs.cs)), "DS", @as(u16, @truncate(regs.ds)));
-    printSeg2("ES", @as(u16, @truncate(regs.es)), "FS", @as(u16, @truncate(regs.fs)));
-    printSeg2("GS", @as(u16, @truncate(regs.gs)), "SS", @as(u16, @truncate(regs.ss)));
+    print_seg2("CS", @as(u16, @truncate(regs.cs)), "DS", @as(u16, @truncate(regs.ds)));
+    print_seg2("ES", @as(u16, @truncate(regs.es)), "FS", @as(u16, @truncate(regs.fs)));
+    print_seg2("GS", @as(u16, @truncate(regs.gs)), "SS", @as(u16, @truncate(regs.ss)));
 }
 
-fn printTitle() void {
+fn print_title() void {
     console.puts("================== KERNEL PANIC ==================\n");
 }
 
-fn printDivider() void {
+fn print_divider() void {
     console.puts("--------------------------------------------------\n");
 }
 
-fn printReg2(a: []const u8, va: usize, b: []const u8, vb: usize) void {
+fn print_reg2(a: []const u8, va: usize, b: []const u8, vb: usize) void {
     console.printf(" {s}=0x{X:0>16}  {s}=0x{X:0>16}\n", .{ a, va, b, vb });
 }
 
-fn printSeg2(a: []const u8, va: u16, b: []const u8, vb: u16) void {
+fn print_seg2(a: []const u8, va: u16, b: []const u8, vb: u16) void {
     console.printf(" {s}=0x{X:0>4}       {s}=0x{X:0>4}\n", .{ a, va, b, vb });
 }

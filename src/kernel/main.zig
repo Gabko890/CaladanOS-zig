@@ -10,28 +10,28 @@ pub const panic = @import("panic.zig").panic;
 // magic and info_addr follow Multiboot2
 pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     if (magic != mb2.bootloader_magic) {
-        console.initializeLegacy();
+        console.initialize_legacy();
         console.puts("Invalid boot magic\n");
         halt();
     }
 
     const init_console = @import("console_init.zig");
-    init_console.initializeFromMultiboot(info_addr);
+    init_console.initialize_from_multiboot(info_addr);
 
     console.clear();
     console.puts("CaladanOS-zig kernel (x86_64) loaded!\n");
 
     // Initialize and load a default IDT.
     idt.init();
-    idt.interruptsEnable();
+    idt.interrupts_enable();
 
     var brand_buf: [64]u8 = undefined;
-    const brand = cpu.writeBrandString(&brand_buf);
+    const brand = cpu.write_brand_string(&brand_buf);
     console.printf("CPU: {s}\n", .{brand});
     var vendor_buf: [16]u8 = undefined;
-    const vendor = cpu.writeVendorString(&vendor_buf);
+    const vendor = cpu.write_vendor_string(&vendor_buf);
     console.printf("Vendor: {s}\n", .{vendor});
-    const logical = cpu.logicalProcessorCount();
+    const logical = cpu.logical_processor_count();
     console.printf("Logical processors: {d}\n", .{logical});
 
     if (mb2.BootloaderMemoryMap.init(info_addr)) |bl_map| {
