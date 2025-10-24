@@ -1,4 +1,4 @@
-const pma = @import("kernel/mm/pma.zig");
+const pma = @import("pma.zig");
 
 pub const PAGE_SIZE = pma.PAGE_SIZE;
 
@@ -18,3 +18,15 @@ pub fn alloc_frames(count: usize, kind: frames) ?usize {
 pub fn free_frames(base_phys_addr: usize, count: usize) void {
     pma.free_frames(base_phys_addr, count);
 }
+
+// pub fn selftest_all() bool {
+//     return pma.selftest_all();
+// }
+//
+// pub fn selftest_kernel_reuse() bool {
+//     return pma.selftest_kernel_reuse();
+// }
+//
+// pub fn selftest_user_down() bool {
+//     return pma.selftest_user_down();
+// }

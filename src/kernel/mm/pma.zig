@@ -13,6 +13,8 @@ const PmmState = struct {
     total_pages: usize = 0,
     kernel_ceiling_page: usize = 0,
     kernel_next_page: usize = 0,
+    user_floor_page: usize = 0,
+    user_next_page: usize = 0,
 };
 
 var state: PmmState = .{};
@@ -205,6 +207,9 @@ pub fn init(info_addr: usize, kernel_end_phys: ?usize) void {
     // Initialize kernel ceiling and next pointer to the end of the kernel image
     state.kernel_ceiling_page = align_up(k_end, PAGE_SIZE) / PAGE_SIZE;
     state.kernel_next_page = state.kernel_ceiling_page;
+    // Initialize user allocator high-water mark to the top and floor to kernel ceiling
+    state.user_floor_page = state.kernel_ceiling_page;
+    state.user_next_page = state.total_pages;
 }
 
 fn find_run(start_page: usize, end_page: usize, count: usize) ?usize {
@@ -237,6 +242,25 @@ fn mark_run_used(start_page: usize, count: usize) void {
     while (i < count) : (i += 1) set_bit(start_page + i);
 }
 
+fn find_run_down(high_exclusive: usize, low_inclusive: usize, count: usize) ?usize {
+    if (high_exclusive <= low_inclusive or count == 0) return null;
+    var p = high_exclusive;
+    var run: usize = 0;
+    while (p > low_inclusive) {
+        p -= 1;
+        if (!test_bit(p)) {
+            run += 1;
+            if (run >= count) {
+                // Return the lowest page index of the contiguous run
+                return p;
+            }
+        } else {
+            run = 0;
+        }
+    }
+    return null;
+}
+
 pub fn alloc_frames(count: usize, is_kernel: bool) ?usize {
     if (count == 0) return null;
     if (is_kernel) {
@@ -257,12 +281,19 @@ pub fn alloc_frames(count: usize, is_kernel: bool) ?usize {
             }
             return null;
     } else {
-        const start = state.kernel_ceiling_page;
-        const endp = state.total_pages;
-        if (find_run(start, endp, count)) |run_start| {
-            if (!range_is_free(run_start, count)) return null; // safety guard
-            mark_run_used(run_start, count);
-            return run_start * PAGE_SIZE;
+        // Reuse: prefer freed holes above the current downwards frontier.
+        if (find_run_down(state.total_pages, state.user_next_page, count)) |low_page| {
+            if (!range_is_free(low_page, count)) return null; // safety guard
+            mark_run_used(low_page, count);
+            // Do not move frontier upward; keep growing down overall.
+            return low_page * PAGE_SIZE;
+        }
+        // Allocate below current frontier and move it down.
+        if (find_run_down(state.user_next_page, state.user_floor_page, count)) |low_page| {
+            if (!range_is_free(low_page, count)) return null; // safety guard
+            mark_run_used(low_page, count);
+            if (low_page < state.user_next_page) state.user_next_page = low_page;
+            return low_page * PAGE_SIZE;
         }
         return null;
     }
@@ -285,3 +316,58 @@ pub fn stats_total_pages() usize {
 pub fn stats_kernel_ceiling_page() usize {
     return state.kernel_ceiling_page;
 }
+
+// Embedded-friendly self-tests (pure functions using synthetic state)
+// Return true on success, false on first failure.
+// pub fn selftest_kernel_reuse() bool {
+//     var bmp: [80]u8 = undefined; // 80*8 = 640 pages max
+//     @memset(bmp[0..], 0);
+//     state.bitmap = &bmp;
+//     state.bitmap_len = bmp.len;
+//     state.total_pages = 600;
+//     // Simulate low memory reserved and kernel region starting at 512 pages
+//     mark_range_reserved(0, KERNEL_LMA);
+//     state.kernel_ceiling_page = 520;
+//     state.kernel_next_page = 520;
+//     state.user_floor_page = state.kernel_ceiling_page;
+//     state.user_next_page = state.total_pages;
+//     // Ensure no holes below kernel_next by marking [512..520) used
+//     mark_run_used(KERNEL_BASE_PAGE, state.kernel_next_page - KERNEL_BASE_PAGE);
+//
+//     const a = alloc_frames(3, true) orelse return false;
+//     if (a != 520 * PAGE_SIZE) return false;
+//
+//     const b = alloc_frames(5, true) orelse return false;
+//     if (b != 523 * PAGE_SIZE) return false;
+//
+//     free_frames(a, 3);
+//     const c = alloc_frames(3, true) orelse return false;
+//     if (c != a) return false;
+//     return true;
+// }
+//
+// pub fn selftest_user_down() bool {
+//     var bmp: [80]u8 = undefined;
+//     @memset(bmp[0..], 0);
+//     state.bitmap = &bmp;
+//     state.bitmap_len = bmp.len;
+//     state.total_pages = 600;
+//     mark_range_reserved(0, KERNEL_LMA);
+//     state.kernel_ceiling_page = 520;
+//     state.kernel_next_page = 520;
+//     state.user_floor_page = 520;
+//     state.user_next_page = 600;
+//
+//     const user1 = alloc_frames(4, false) orelse return false;
+//     if (user1 != 596 * PAGE_SIZE) return false;
+//     const user2 = alloc_frames(2, false) orelse return false;
+//     if (user2 != 594 * PAGE_SIZE) return false;
+//     free_frames(user1, 4);
+//     const user3 = alloc_frames(4, false) orelse return false;
+//     if (user3 != user1) return false;
+//     return true;
+// }
+//
+// pub fn selftest_all() bool {
+//     return selftest_kernel_reuse() and selftest_user_down();
+// }

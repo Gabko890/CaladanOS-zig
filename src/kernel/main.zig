@@ -42,7 +42,12 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
         console.puts("No memory map provided by bootloader\n");
     }
 
-    // Initialize physical frame allocator from Multiboot2 map
+    // Run embedded selftests for the frame allocator
+    // console.printf("MM selftest kernel_reuse: {s}\n", .{if (mm.selftest_kernel_reuse()) "PASS" else "FAIL"});
+    // console.printf("MM selftest user_down: {s}\n", .{if (mm.selftest_user_down()) "PASS" else "FAIL"});
+    // console.printf("MM selftest all: {s}\n", .{if (mm.selftest_all()) "PASS" else "FAIL"});
+
+    // Initialize physical frame allocator from Multiboot2 map (restore real state)
     mm.pma_init(info_addr, null);
 
     halt();
