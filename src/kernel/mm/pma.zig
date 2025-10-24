@@ -3,11 +3,9 @@ const arch_boot = @import("arch_boot");
 
 pub const PAGE_SIZE: usize = 4096;
 
-// Allocation class for physical frames (4KiB units).
-pub const PmPageFlag = enum(u8) {
-    PM_PAGE_KERNEL,
-    PM_PAGE_USER,
-};
+// Allocation policy for physical frames (4KiB units) is selected by a boolean
+// flag at callsite: is_kernel = true reserves frames from the kernel region,
+// false selects general/user frames above the kernel ceiling.
 
 const PmmState = struct {
     bitmap: [*]u8 = undefined,
@@ -239,10 +237,9 @@ fn mark_run_used(start_page: usize, count: usize) void {
     while (i < count) : (i += 1) set_bit(start_page + i);
 }
 
-pub fn alloc_pages(count: usize, class: PmPageFlag) ?usize {
+pub fn alloc_frames(count: usize, is_kernel: bool) ?usize {
     if (count == 0) return null;
-    switch (class) {
-        .PM_PAGE_KERNEL => {
+    if (is_kernel) {
             // Reuse: first-fit below current kernel_next_page within kernel region.
             if (find_run(KERNEL_BASE_PAGE, state.kernel_next_page, count)) |run_start| {
                 if (!range_is_free(run_start, count)) return null; // safety guard
@@ -259,21 +256,19 @@ pub fn alloc_pages(count: usize, class: PmPageFlag) ?usize {
                 return run_start * PAGE_SIZE;
             }
             return null;
-        },
-        .PM_PAGE_USER => {
-            const start = state.kernel_ceiling_page;
-            const endp = state.total_pages;
-            if (find_run(start, endp, count)) |run_start| {
-                var i: usize = 0;
-                while (i < count) : (i += 1) set_bit(run_start + i);
-                return run_start * PAGE_SIZE;
-            }
-            return null;
-        },
+    } else {
+        const start = state.kernel_ceiling_page;
+        const endp = state.total_pages;
+        if (find_run(start, endp, count)) |run_start| {
+            if (!range_is_free(run_start, count)) return null; // safety guard
+            mark_run_used(run_start, count);
+            return run_start * PAGE_SIZE;
+        }
+        return null;
     }
 }
 
-pub fn free_pages(base_phys_addr: usize, count: usize) void {
+pub fn free_frames(base_phys_addr: usize, count: usize) void {
     if (count == 0) return;
     var i: usize = 0;
     while (i < count) : (i += 1) {

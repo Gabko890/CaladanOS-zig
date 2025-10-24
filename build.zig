@@ -68,7 +68,7 @@ pub fn build(b: *std.Build) void {
     cpuid_module.addImport("build_options", build_options_mod);
 
     const mm_module = b.createModule(.{
-        .root_source_file = b.path("src/mm/mod.zig"),
+        .root_source_file = b.path("src/mm.zig"),
         .target = target,
         .optimize = optimize,
     });
