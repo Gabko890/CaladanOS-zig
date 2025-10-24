@@ -88,6 +88,12 @@ SECTIONS {
     /* Physical bounds: derive from LMA of .text and end of .bss */
     __kernel_phys_start = LOADADDR(.text);
     __kernel_phys_end   = LOADADDR(.bss) + SIZEOF(.bss);
+    /* Also expose them via PROVIDE to ensure they are visible to the linker */
+    PROVIDE(__kernel_phys_start_sym = LOADADDR(.text));
+    PROVIDE(__kernel_phys_end_sym   = LOADADDR(.bss) + SIZEOF(.bss));
+    /* Simplified aliases without leading underscores for some toolchains */
+    PROVIDE(kphys_start = LOADADDR(.text));
+    PROVIDE(kphys_end   = LOADADDR(.bss) + SIZEOF(.bss));
 
     /* Also expose them as absolute symbols for 32-bit bootstrap */
     PROVIDE(__kphys_start_value = LOADADDR(.text));

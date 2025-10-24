@@ -67,9 +67,18 @@ pub fn build(b: *std.Build) void {
     });
     cpuid_module.addImport("build_options", build_options_mod);
 
+    const mm_module = b.createModule(.{
+        .root_source_file = b.path("src/mm/mod.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    // mm depends on multiboot helpers for parsing memory map
+    mm_module.addImport("arch_boot", multiboot_module);
+
     root_module.addImport("console", console_module);
     root_module.addImport("arch_boot", multiboot_module);
     root_module.addImport("arch_cpu", cpuid_module);
+    root_module.addImport("mm", mm_module);
     if (serial_module) |m| {
         root_module.addImport("serial", m);
         console_module.addImport("serial", m);

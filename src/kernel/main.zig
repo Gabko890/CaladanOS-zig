@@ -3,6 +3,8 @@ const console = @import("console");
 const mb2 = @import("arch_boot");
 const cpu = @import("arch_cpu");
 const idt = @import("idt.zig");
+const mm = @import("mm");
+
 // Re-export custom panic handler from a dedicated file so it becomes the root panic.
 pub const panic = @import("panic.zig").panic;
 
@@ -39,6 +41,9 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     } else {
         console.puts("No memory map provided by bootloader\n");
     }
+
+    // Initialize physical memory manager from Multiboot2 map
+    mm.pmm.init(info_addr, null);
 
     halt();
 }
