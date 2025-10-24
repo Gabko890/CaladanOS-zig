@@ -42,8 +42,8 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
         console.puts("No memory map provided by bootloader\n");
     }
 
-    // Initialize physical memory manager from Multiboot2 map
-    mm.pmm.init(info_addr, null);
+    // Initialize physical frame allocator from Multiboot2 map
+    mm.pma_init(info_addr, null);
 
     halt();
 }

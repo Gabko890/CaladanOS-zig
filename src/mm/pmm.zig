@@ -3,7 +3,7 @@ const arch_boot = @import("arch_boot");
 
 pub const PAGE_SIZE: usize = 4096;
 
-// Allocation class for physical pages.
+// Allocation class for physical frames (4KiB units).
 pub const PmPageFlag = enum(u8) {
     PM_PAGE_KERNEL,
     PM_PAGE_USER,
