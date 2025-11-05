@@ -55,8 +55,8 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     // Initialize physical frame allocator from Multiboot2 map (restore real state)
     mm.pma.init(info_addr, null); //ld_export.kernel_phys_end());
 
-    const frame_ptr_1: ?usize = mm.pma.alloc_frames(4, true);
-    console.printf("alocated:\n    4 frames at: 0x{x}\n    2 frames at: 0x{x}", .{ frame_ptr_1 orelse 0x0, mm.pma.alloc_frames(2, true) orelse 0x00 });
+    const frame_ptr_1: ?usize = mm.pma.alloc_frames(4, mm.pma.Frame_type.KERNEL);
+    console.printf("alocated:\n    4 frames at: 0x{x}\n    2 frames at: 0x{x}", .{ frame_ptr_1 orelse 0x0, mm.pma.alloc_frames(2, mm.pma.Frame_type.KERNEL) orelse 0x00 });
 
     halt();
 }

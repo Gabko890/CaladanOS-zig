@@ -266,9 +266,9 @@ fn find_run_down(high_exclusive: usize, low_inclusive: usize, count: usize) ?usi
     return null;
 }
 
-pub fn alloc_frames(count: usize, is_kernel: bool) ?usize {
+pub fn alloc_frames(count: usize, which: Frame_type) ?usize {
     if (count == 0) return null;
-    if (is_kernel) {
+    if (which == .KERNEL) {
         // Reuse: first-fit below current kernel_next_page within kernel region.
         if (find_run(KERNEL_BASE_PAGE, state.kernel_next_page, count)) |run_start| {
             if (!range_is_free(run_start, count)) return null; // safety guard
@@ -339,14 +339,14 @@ pub fn stats_kernel_ceiling_page() usize {
 //     // Ensure no holes below kernel_next by marking [512..520) used
 //     mark_run_used(KERNEL_BASE_PAGE, state.kernel_next_page - KERNEL_BASE_PAGE);
 //
-//     const a = alloc_frames(3, true) orelse return false;
+//     const a = alloc_frames(3, .KERNEL) orelse return false;
 //     if (a != 520 * PAGE_SIZE) return false;
 //
-//     const b = alloc_frames(5, true) orelse return false;
+//     const b = alloc_frames(5, .KERNEL) orelse return false;
 //     if (b != 523 * PAGE_SIZE) return false;
 //
 //     free_frames(a, 3);
-//     const c = alloc_frames(3, true) orelse return false;
+//     const c = alloc_frames(3, .KERNEL) orelse return false;
 //     if (c != a) return false;
 //     return true;
 // }
@@ -363,12 +363,12 @@ pub fn stats_kernel_ceiling_page() usize {
 //     state.user_floor_page = 520;
 //     state.user_next_page = 600;
 //
-//     const user1 = alloc_frames(4, false) orelse return false;
+//     const user1 = alloc_frames(4, .USER) orelse return false;
 //     if (user1 != 596 * PAGE_SIZE) return false;
-//     const user2 = alloc_frames(2, false) orelse return false;
+//     const user2 = alloc_frames(2, .USER) orelse return false;
 //     if (user2 != 594 * PAGE_SIZE) return false;
 //     free_frames(user1, 4);
-//     const user3 = alloc_frames(4, false) orelse return false;
+//     const user3 = alloc_frames(4, .USER) orelse return false;
 //     if (user3 != user1) return false;
 //     return true;
 // }
