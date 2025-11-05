@@ -71,6 +71,10 @@ SECTIONS {
 
     .rodata : ALIGN(4K) :krodata AT(KERNEL_LMA + (ADDR(.rodata) - KERNEL_VMA)) {
         *(.rodata*)
+        . = ALIGN(8);
+        /* Materialized constants for Zig extern var access */
+        __kernel_virt_base = .;      QUAD(KERNEL_VMA);
+        __ldexp_kernel_phys_end = .; QUAD(LOADADDR(.bss) + SIZEOF(.bss));
     }
 
     .data : ALIGN(4K) :kdata AT(KERNEL_LMA + (ADDR(.data) - KERNEL_VMA)) {
@@ -81,13 +85,15 @@ SECTIONS {
     .bss : ALIGN(4K) :kdata AT(KERNEL_LMA + (ADDR(.bss) - KERNEL_VMA)) {
         *(COMMON)
         *(.bss*)
+        /* Keep kernel end sentinel last in .bss to mark image end */
+        KEEP(*(.bss.kernel_end))
     }
 
     PROVIDE(__kernel_virt_end = .);
 
     /* Physical bounds: derive from LMA of .text and end of .bss */
-    __kernel_phys_start = LOADADDR(.text);
-    __kernel_phys_end   = LOADADDR(.bss) + SIZEOF(.bss);
+    PROVIDE(__kernel_phys_start = LOADADDR(.text));
+    PROVIDE(__kernel_phys_end   = LOADADDR(.bss) + SIZEOF(.bss));
     /* Also expose them via PROVIDE to ensure they are visible to the linker */
     PROVIDE(__kernel_phys_start_sym = LOADADDR(.text));
     PROVIDE(__kernel_phys_end_sym   = LOADADDR(.bss) + SIZEOF(.bss));
@@ -99,6 +105,8 @@ SECTIONS {
     PROVIDE(__kphys_start_value = LOADADDR(.text));
     PROVIDE(__kphys_end_value   = LOADADDR(.bss) + SIZEOF(.bss));
     PROVIDE(__kernel_image_size = __kernel_virt_end - __kernel_virt_start);
+
+    /* (Removed) .ldexports block now merged into .rodata */
 
     /* Ensure DWARF/debug sections come last so they do not push
        loadable sections forward in the file and hide the header. */
@@ -120,5 +128,3 @@ SECTIONS {
     .eh_frame_hdr     0 : { *(.eh_frame_hdr) }
     .eh_frame         0 : { *(.eh_frame) }
 }
-
-PROVIDE(__kernel_virt_base = KERNEL_VMA);

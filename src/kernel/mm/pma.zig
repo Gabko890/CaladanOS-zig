@@ -3,6 +3,11 @@ const arch_boot = @import("arch_boot");
 
 pub const PAGE_SIZE: usize = 4096;
 
+pub const Frame_type = enum(u1) {
+    KERNEL = 0,
+    USER = 1,
+};
+
 // Allocation policy for physical frames (4KiB units) is selected by a boolean
 // flag at callsite: is_kernel = true reserves frames from the kernel region,
 // false selects general/user frames above the kernel ceiling.
@@ -264,22 +269,22 @@ fn find_run_down(high_exclusive: usize, low_inclusive: usize, count: usize) ?usi
 pub fn alloc_frames(count: usize, is_kernel: bool) ?usize {
     if (count == 0) return null;
     if (is_kernel) {
-            // Reuse: first-fit below current kernel_next_page within kernel region.
-            if (find_run(KERNEL_BASE_PAGE, state.kernel_next_page, count)) |run_start| {
-                if (!range_is_free(run_start, count)) return null; // safety guard
-                mark_run_used(run_start, count);
-                return run_start * PAGE_SIZE;
-            }
-            // Append: first-fit at/above kernel_next_page, then advance next/ceiling.
-            if (find_run(state.kernel_next_page, state.total_pages, count)) |run_start| {
-                if (!range_is_free(run_start, count)) return null; // safety guard
-                mark_run_used(run_start, count);
-                const end = run_start + count;
-                if (end > state.kernel_ceiling_page) state.kernel_ceiling_page = end;
-                if (end > state.kernel_next_page) state.kernel_next_page = end;
-                return run_start * PAGE_SIZE;
-            }
-            return null;
+        // Reuse: first-fit below current kernel_next_page within kernel region.
+        if (find_run(KERNEL_BASE_PAGE, state.kernel_next_page, count)) |run_start| {
+            if (!range_is_free(run_start, count)) return null; // safety guard
+            mark_run_used(run_start, count);
+            return run_start * PAGE_SIZE;
+        }
+        // Append: first-fit at/above kernel_next_page, then advance next/ceiling.
+        if (find_run(state.kernel_next_page, state.total_pages, count)) |run_start| {
+            if (!range_is_free(run_start, count)) return null; // safety guard
+            mark_run_used(run_start, count);
+            const end = run_start + count;
+            if (end > state.kernel_ceiling_page) state.kernel_ceiling_page = end;
+            if (end > state.kernel_next_page) state.kernel_next_page = end;
+            return run_start * PAGE_SIZE;
+        }
+        return null;
     } else {
         // Reuse: prefer freed holes above the current downwards frontier.
         if (find_run_down(state.total_pages, state.user_next_page, count)) |low_page| {

@@ -1,15 +1,19 @@
 const std = @import("std");
+
 const console = @import("console");
+const init_console = @import("console_init.zig");
 const mb2 = @import("arch_boot");
+
 const cpu = @import("arch_cpu");
 const idt = @import("idt.zig");
 const mm = @import("mm");
+
+const ld_export = @import("ld_export");
 
 // Re-export custom panic handler from a dedicated file so it becomes the root panic.
 pub const panic = @import("panic.zig").panic;
 
 // 64-bit entry called by the bootstrap
-// magic and info_addr follow Multiboot2
 pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     if (magic != mb2.bootloader_magic) {
         console.initialize_legacy();
@@ -17,11 +21,12 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
         halt();
     }
 
-    const init_console = @import("console_init.zig");
     init_console.initialize_from_multiboot(info_addr);
 
     console.clear();
     console.puts("CaladanOS-zig kernel (x86_64) loaded!\n");
+
+    console.printf("kernel physical addr: 0x{x}={d} - 0x{x}={d}\n", .{ ld_export.kernel_phys_start(), ld_export.kernel_phys_start(), ld_export.kernel_phys_end(), ld_export.kernel_phys_end() });
 
     // Initialize and load a default IDT.
     idt.init();
@@ -48,7 +53,10 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     // console.printf("MM selftest all: {s}\n", .{if (mm.selftest_all()) "PASS" else "FAIL"});
 
     // Initialize physical frame allocator from Multiboot2 map (restore real state)
-    mm.pma_init(info_addr, null);
+    mm.pma.init(info_addr, null); //ld_export.kernel_phys_end());
+
+    const frame_ptr_1: ?usize = mm.pma.alloc_frames(4, true);
+    console.printf("alocated:\n    4 frames at: 0x{x}\n    2 frames at: 0x{x}", .{ frame_ptr_1 orelse 0x0, mm.pma.alloc_frames(2, true) orelse 0x00 });
 
     halt();
 }

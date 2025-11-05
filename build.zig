@@ -79,6 +79,18 @@ pub fn build(b: *std.Build) void {
     root_module.addImport("arch_boot", multiboot_module);
     root_module.addImport("arch_cpu", cpuid_module);
     root_module.addImport("mm", mm_module);
+    // Linker exports module (addresses from kernel.ld PROVIDE symbols)
+    const ld_exports_module = b.createModule(.{
+        .root_source_file = b.path("src/arch/x86_64/linker/ld_exports.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    // Expose as "ld_export" so code can `@import("ld_export")`.
+    root_module.addImport("ld_export", ld_exports_module);
+    console_module.addImport("ld_export", ld_exports_module);
+    multiboot_module.addImport("ld_export", ld_exports_module);
+    cpuid_module.addImport("ld_export", ld_exports_module);
+    mm_module.addImport("ld_export", ld_exports_module);
     if (serial_module) |m| {
         root_module.addImport("serial", m);
         console_module.addImport("serial", m);
@@ -94,6 +106,8 @@ pub fn build(b: *std.Build) void {
     kernel.addAssemblyFile(b.path("src/arch/x86_64/cpu/regs.S"));
     // Default IDT handler stubs (64-bit)
     kernel.addAssemblyFile(b.path("src/arch/x86_64/cpu/idt_stubs.S"));
+    // Kernel end sentinel (ensures a concrete symbol at end of .bss)
+    kernel.addAssemblyFile(b.path("src/arch/x86_64/linker/kend.S"));
     kernel.setLinkerScript(b.path("src/arch/x86_64/linker/kernel.ld"));
     const install_kernel = b.addInstallArtifact(kernel, .{});
 
