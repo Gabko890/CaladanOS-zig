@@ -151,11 +151,11 @@ pub fn init(info_addr: usize, kernel_end_phys: ?usize) void {
     }
     if (max_addr == 0) max_addr = 1 * 1024 * 1024; // safety
 
-    const total_pages = align_up(max_addr, PAGE_SIZE) / PAGE_SIZE;
-    state.total_pages = total_pages;
+    const total_pages_count = align_up(max_addr, PAGE_SIZE) / PAGE_SIZE;
+    state.total_pages = total_pages_count;
 
     // Decide bitmap placement: just after the kernel image
-    const bmp_bytes = (total_pages + 7) / 8;
+    const bmp_bytes = (total_pages_count + 7) / 8;
     const bmp_len = align_up(bmp_bytes, PAGE_SIZE);
 
     const k_end = kernel_end_phys orelse DEFAULT_KERNEL_RESERVE;
@@ -215,6 +215,14 @@ pub fn init(info_addr: usize, kernel_end_phys: ?usize) void {
     // Initialize user allocator high-water mark to the top and floor to kernel ceiling
     state.user_floor_page = state.kernel_ceiling_page;
     state.user_next_page = state.total_pages;
+}
+
+pub fn total_pages() usize {
+    return state.total_pages;
+}
+
+pub fn total_bytes() usize {
+    return state.total_pages * PAGE_SIZE;
 }
 
 fn find_run(start_page: usize, end_page: usize, count: usize) ?usize {

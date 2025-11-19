@@ -7,10 +7,9 @@ const mb2 = @import("arch_boot");
 const cpu = @import("arch_cpu");
 const idt = @import("idt.zig");
 const mm = @import("mm");
+const kheap = @import("heap.zig");
 
 const syms = @import("ld_syms");
-
-//extern "__kernel_phys_end" const __kernel_phys_end: usize;
 
 // Re-export custom panic handler from a dedicated file so it becomes the root panic.
 pub const panic = @import("panic.zig").panic;
@@ -63,9 +62,20 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     mm.vmm.init();
     mm.vmm.install_kernel_tables();
 
-    const frame_ptr_1: ?usize = mm.pma.alloc_frames(4, mm.pma.Frame_type.KERNEL);
-    console.printf("4 pages alocated at: {x}", .{frame_ptr_1 orelse 0x00});
-    if (frame_ptr_1) |fp| mm.pma.free_frames(fp, 4);
+    console.printf("Initializing kernel heap (FBA)...\n", .{});
+    if (kheap.init_fixed_buffer_heap()) |res| {
+        console.printf("kernel heap: vbase=0x{x} size={d} KiB\n", .{ @intFromPtr(res.base), res.len / 1024 });
+        var alloc = kheap.allocator();
+        if (alloc.alloc(u8, 4096)) |buf| {
+            console.printf("heap smoke alloc: 4 KiB @ 0x{x}\n", .{@intFromPtr(buf.ptr)});
+            alloc.free(buf);
+        } else |_| {
+            console.puts("heap smoke alloc: failed\n");
+        }
+    } else {
+        console.puts("kernel heap: init failed\nhalting\n");
+        halt();
+    }
 
     halt();
 }
