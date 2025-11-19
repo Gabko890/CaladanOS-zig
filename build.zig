@@ -31,6 +31,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/drivers/video/console.zig"),
         .target = target,
         .optimize = optimize,
+        .code_model = .kernel,
     });
     console_module.addImport("build_options", build_options_mod);
 
@@ -38,6 +39,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/arch/x86_64/cpu/io.zig"),
         .target = target,
         .optimize = optimize,
+        .code_model = .kernel,
     });
 
     var serial_module: ?*std.Build.Module = null;
@@ -46,6 +48,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/drivers/debug/serial.zig"),
             .target = target,
             .optimize = optimize,
+            .code_model = .kernel,
         });
         module.addImport("portio", portio_module);
         serial_module = module;
@@ -55,6 +58,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/arch/x86_64/boot/multiboot2.zig"),
         .target = target,
         .optimize = optimize,
+        .code_model = .kernel,
     });
     multiboot_module.addImport("build_options", build_options_mod);
     // Allow mb2 helpers to print via the console.
@@ -64,6 +68,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/arch/x86_64/cpu/cpuid.zig"),
         .target = target,
         .optimize = optimize,
+        .code_model = .kernel,
     });
     cpuid_module.addImport("build_options", build_options_mod);
 
@@ -71,6 +76,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/kernel/mm/mm.zig"),
         .target = target,
         .optimize = optimize,
+        .code_model = .kernel,
     });
     // mm depends on multiboot helpers for parsing memory map
     mm_module.addImport("arch_boot", multiboot_module);
@@ -79,22 +85,19 @@ pub fn build(b: *std.Build) void {
     root_module.addImport("arch_boot", multiboot_module);
     root_module.addImport("arch_cpu", cpuid_module);
     root_module.addImport("mm", mm_module);
-    // Linker exports module (addresses from kernel.ld PROVIDE symbols)
-    const ld_exports_module = b.createModule(.{
-        .root_source_file = b.path("src/arch/x86_64/linker/ld_exports.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    // Expose as "ld_export" so code can `@import("ld_export")`.
-    root_module.addImport("ld_export", ld_exports_module);
-    console_module.addImport("ld_export", ld_exports_module);
-    multiboot_module.addImport("ld_export", ld_exports_module);
-    cpuid_module.addImport("ld_export", ld_exports_module);
-    mm_module.addImport("ld_export", ld_exports_module);
     if (serial_module) |m| {
         root_module.addImport("serial", m);
         console_module.addImport("serial", m);
     }
+
+    // Minimal C-style linker symbols wrapper
+    const ld_syms_module = b.createModule(.{
+        .root_source_file = b.path("src/arch/x86_64/linker/ld_syms.zig"),
+        .target = target,
+        .optimize = optimize,
+        .code_model = .kernel,
+    });
+    root_module.addImport("ld_syms", ld_syms_module);
 
     // Kernel build
     const kernel = b.addExecutable(.{
@@ -108,6 +111,8 @@ pub fn build(b: *std.Build) void {
     kernel.addAssemblyFile(b.path("src/arch/x86_64/cpu/idt_stubs.S"));
     // Kernel end sentinel (ensures a concrete symbol at end of .bss)
     kernel.addAssemblyFile(b.path("src/arch/x86_64/linker/kend.S"));
+    // Runtime-populated kernel phys bound slots
+    kernel.addAssemblyFile(b.path("src/arch/x86_64/linker/ksyms.S"));
     kernel.setLinkerScript(b.path("src/arch/x86_64/linker/kernel.ld"));
     const install_kernel = b.addInstallArtifact(kernel, .{});
 

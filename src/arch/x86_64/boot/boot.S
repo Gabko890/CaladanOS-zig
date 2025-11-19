@@ -269,6 +269,39 @@ long_mode_entry:
 
     // Enter kernel in higher half: jump to KERNEL_VMA + offset_in_2MiB
     .set    KERNEL_VMA, 0xFFFFFFFF80000000
+    .set    KERNEL_LMA, 0x00200000
+
+    // Populate runtime kernel phys bound values for Zig externs
+    .extern __kphys_start_value
+    .extern __kphys_end_value
+    .extern __kvirt_start_value
+    .extern __kvirt_end_value
+    .extern __kernel_end_sentinel
+
+    // __kphys_start_value = KERNEL_LMA
+    movabs  rax, KERNEL_LMA
+    movabs  rcx, OFFSET __kphys_start_value
+    mov     qword ptr [rcx], rax
+
+    // __kphys_end_value = KERNEL_LMA + ((&__kernel_end_sentinel - KERNEL_VMA))
+    // Compute virtual end address and convert to physical.
+    movabs  rax, OFFSET __kernel_end_sentinel   // rax = virt end
+    movabs  rbx, KERNEL_VMA
+    sub     rax, rbx                             // rax = offset from VMA
+    movabs  rbx, KERNEL_LMA
+    add     rax, rbx                             // rax = physical end
+    movabs  rcx, OFFSET __kphys_end_value
+    mov     qword ptr [rcx], rax
+
+    // __kvirt_start_value = KERNEL_VMA
+    movabs  rax, KERNEL_VMA
+    movabs  rcx, OFFSET __kvirt_start_value
+    mov     qword ptr [rcx], rax
+
+    // __kvirt_end_value = &__kernel_end_sentinel (virtual address)
+    movabs  rax, OFFSET __kernel_end_sentinel
+    movabs  rcx, OFFSET __kvirt_end_value
+    mov     qword ptr [rcx], rax
     mov     eax, dword ptr [kmain_off2m]
     mov     edx, 0
     mov     edx, eax

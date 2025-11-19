@@ -11,6 +11,9 @@ ENTRY(_start)
 KERNEL_VMA = 0xFFFFFFFF80000000;   /* higher-half base */
 KERNEL_LMA = 2M;                   /* physical load base */
 
+/* Ensure these names are considered by the linker when resolving
+   externs coming from Zig code. */
+EXTERN(__kernel_phys_start __kernel_phys_end __kernel_virt_start __kernel_virt_end);
 
 PHDRS {
     headers PT_PHDR PHDRS ;
@@ -62,7 +65,7 @@ SECTIONS {
     */
     . = KERNEL_VMA;
 
-    /* Higher-half kernel begins at KERNEL_VMA. */
+    PROVIDE(__kernel_virt_start = .);
 
     .text : ALIGN(4K) :ktext AT(KERNEL_LMA + (ADDR(.text) - KERNEL_VMA)) {
         __kernel_text_start = .;
@@ -73,6 +76,10 @@ SECTIONS {
     .rodata : ALIGN(4K) :krodata AT(KERNEL_LMA + (ADDR(.rodata) - KERNEL_VMA)) {
         *(.rodata*)
         . = ALIGN(8);
+        /* Materialized constants for Zig extern-var access */
+        __kernel_virt_base        = .; QUAD(KERNEL_VMA);
+        __ldexp_kernel_phys_start = .; QUAD(LOADADDR(.text));
+        __ldexp_kernel_phys_end   = .; QUAD(LOADADDR(.bss) + SIZEOF(.bss));
     }
 
     .data : ALIGN(4K) :kdata AT(KERNEL_LMA + (ADDR(.data) - KERNEL_VMA)) {
@@ -87,14 +94,24 @@ SECTIONS {
         KEEP(*(.bss.kernel_end))
     }
 
-    /* Physical/virtual helpers usable by bootstrap. */
+    PROVIDE(__kernel_virt_end = .);
+
+    /* Physical bounds: derive from LMA of .text and end of .bss */
     PROVIDE(__kernel_phys_start = LOADADDR(.text));
     PROVIDE(__kernel_phys_end   = LOADADDR(.bss) + SIZEOF(.bss));
+    /* Also expose them via PROVIDE to ensure they are visible to the linker */
+    PROVIDE(__kernel_phys_start_sym = LOADADDR(.text));
+    PROVIDE(__kernel_phys_end_sym   = LOADADDR(.bss) + SIZEOF(.bss));
+    /* Simplified aliases without leading underscores for some toolchains */
     PROVIDE(kphys_start = LOADADDR(.text));
     PROVIDE(kphys_end   = LOADADDR(.bss) + SIZEOF(.bss));
-    PROVIDE(__kernel_virt_start = ADDR(.text));
-    PROVIDE(__kernel_virt_end   = ADDR(.bss) + SIZEOF(.bss));
+
+    /* Also expose them as absolute symbols for 32-bit bootstrap */
+    PROVIDE(__kphys_start_value = LOADADDR(.text));
+    PROVIDE(__kphys_end_value   = LOADADDR(.bss) + SIZEOF(.bss));
     PROVIDE(__kernel_image_size = __kernel_virt_end - __kernel_virt_start);
+
+    /* (Removed) .ldexports block now merged into .rodata */
 
     /* Ensure DWARF/debug sections come last so they do not push
        loadable sections forward in the file and hide the header. */
