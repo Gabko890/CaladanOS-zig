@@ -57,10 +57,15 @@ pub export fn kmain(magic: u32, info_addr: usize) noreturn {
     // console.printf("MM selftest all: {s}\n", .{if (mm.selftest_all()) "PASS" else "FAIL"});
 
     // Initialize physical frame allocator from Multiboot2 map (restore real state)
-    mm.pma.init(info_addr, null); // syms.kphys_end());
+    mm.pma.init(info_addr, syms.kphys_end());
+
+    // Initialize virtual memory manager and install new page tables
+    mm.vmm.init();
+    mm.vmm.install_kernel_tables();
 
     const frame_ptr_1: ?usize = mm.pma.alloc_frames(4, mm.pma.Frame_type.KERNEL);
-    mm.pma.free_frames(frame_ptr_1.?, 4);
+    console.printf("4 pages alocated at: {x}", .{frame_ptr_1 orelse 0x00});
+    if (frame_ptr_1) |fp| mm.pma.free_frames(fp, 4);
 
     halt();
 }

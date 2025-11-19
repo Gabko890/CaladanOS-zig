@@ -98,6 +98,7 @@ pub fn build(b: *std.Build) void {
         .code_model = .kernel,
     });
     root_module.addImport("ld_syms", ld_syms_module);
+    mm_module.addImport("ld_syms", ld_syms_module);
 
     // Kernel build
     const kernel = b.addExecutable(.{
